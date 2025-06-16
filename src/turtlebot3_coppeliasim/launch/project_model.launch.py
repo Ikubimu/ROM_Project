@@ -89,10 +89,17 @@ def generate_launch_description():
             parameters=[{'use_sim_time': use_sim_time}],
             arguments=[urdf]),
 
+        #uncomment for v3d
+        # Node(
+        #     package='turtlebot3_socket_bridge',
+        #     executable='tcp_pub',
+        #     name='socket_vel_publisher',
+        #     output='screen'
+        # ),
         Node(
-            package='turtlebot3_socket_bridge',
-            executable='tcp_pub',
-            name='socket_vel_publisher',
+            package='turtlebot3_main',
+            executable='turtlebot3_main_node',
+            name='turtlebot3_main',
             output='screen'
         ),
     ])
