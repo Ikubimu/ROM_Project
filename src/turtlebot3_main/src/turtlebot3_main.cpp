@@ -12,6 +12,8 @@
 #include <std_msgs/msg/int32.hpp>
 #include "geometry_msgs/msg/twist.hpp"
 
+#include "intelligent_mode/intelligent_mode.hpp"
+
 using std::placeholders::_1;
 
 
@@ -41,7 +43,8 @@ public: turtlebot3_main() : Node("turtlebot3_main")
     );
     vel_publisher = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 
-    init_MANUAL_MODE();
+    //init_MANUAL_MODE();
+    init_INTELLIGENT_MODE();
 }
 
 private:
@@ -149,7 +152,7 @@ void deinit_RANDOM_MODE()
 
 void init_INTELLIGENT_MODE()
 {
-
+    get_prm_path(prm_path, 100, 10); //example values
 }
 void deinit_INTELLIGENT_MODE()
 {
@@ -163,6 +166,7 @@ rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher;
 
 
 States_robot state = MANUAL_MODE;
+std::vector<std::pair<double, double>> prm_path;
 };
 
 std::shared_ptr<turtlebot3_main> node = nullptr;

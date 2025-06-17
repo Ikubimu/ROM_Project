@@ -10,6 +10,11 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav2_map_server REQUIRED)
+
+include_directories(
+  ${nav2_map_server_INCLUDE_DIRS}
+)
 
 # Agrega tu ejecutable
 add_executable(${PROJECT_NAME}_node src/turtlebot3_main.cpp)
@@ -19,6 +24,7 @@ ament_target_dependencies(${PROJECT_NAME}_node
   rclcpp
   std_msgs
   geometry_msgs
+  nav2_map_server
 )
 
 
