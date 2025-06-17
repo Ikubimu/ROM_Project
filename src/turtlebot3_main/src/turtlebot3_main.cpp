@@ -147,10 +147,13 @@ void deinit_RANDOM_MODE()
 
 }
 
+
 void init_INTELLIGENT_MODE()
 {
 
 }
+
+
 void deinit_INTELLIGENT_MODE()
 {
 
