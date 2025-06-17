@@ -12,6 +12,8 @@
 #include <std_msgs/msg/int32.hpp>
 #include "geometry_msgs/msg/twist.hpp"
 
+#include "random_mode.hpp"
+
 using std::placeholders::_1;
 
 
@@ -40,6 +42,9 @@ public: turtlebot3_main() : Node("turtlebot3_main")
             std::bind(&turtlebot3_main::state_callback, this, _1)
     );
     vel_publisher = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+
+
+    std::shared_ptr<RandomMode> random_mode;
 
     init_MANUAL_MODE();
 }
@@ -140,10 +145,16 @@ void update_movements(const std_msgs::msg::Int32::SharedPtr msg)
 
 void init_RANDOM_MODE()
 {
+    random_mode = std::make_shared<RandomMode>(this, std::bind(&turtlebot3_main::publish_cmd_vel, this, std::placeholders::_1, std::placeholders::_2));
+    random_mode->start();
 
 }
 void deinit_RANDOM_MODE()
 {
+    if (random_mode) {
+        random_mode->stop();
+        random_mode.reset();
+    }
 
 }
 
