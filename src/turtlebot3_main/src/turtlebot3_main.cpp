@@ -10,6 +10,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include <std_msgs/msg/int32.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include "geometry_msgs/msg/twist.hpp"
 
 #include "intelligent_mode/intelligent_mode.hpp"
@@ -141,6 +143,82 @@ void update_movements(const std_msgs::msg::Int32::SharedPtr msg)
     }
 }
 
+void odom_callback(const nav_msgs::msg::Odometry::SharedPtr odom_msg){
+    if (!initialized_odom){
+
+        x_rob_0 = odom_msg->pose.pose.position.x;
+        y_rob_0 = odom_msg->pose.pose.position.y;
+
+        tf2::Quaternion q( 
+            odom_msg->pose.pose.orientation.x,
+            odom_msg->pose.pose.orientation.y,
+            odom_msg->pose.pose.orientation.z,
+            odom_msg->pose.pose.orientation.w);
+
+        double roll, pitch, yaw;
+        tf2::Matrix3x3 m(q);
+        m.getRPY(roll,pitch,yaw);
+
+        theta_rob_0 = yaw;
+        initialized_odom = true;
+    }
+    x_rob = odom_msg->pose.pose.position.x;
+    y_rob = odom_msg->pose.pose.position.y;
+
+    tf2::Quaternion q( 
+        odom_msg->pose.pose.orientation.x,
+        odom_msg->pose.pose.orientation.y,
+        odom_msg->pose.pose.orientation.z,
+        odom_msg->pose.pose.orientation.w);
+
+    double roll, pitch, yaw;
+    tf2::Matrix3x3 m(q);
+    m.getRPY(roll,pitch,yaw);
+    
+    theta_rob = yaw;
+}
+
+void get_next_point(geometry_msgs::msg::Point &goalPoint, 
+                       std::vector<std::pair<double, double>> &vector_pos,
+                       int& pos_index)
+{
+    double distance = std::sqrt(
+        std::pow(vector_pos[pos_index].first - x_rob, 2) +
+        std::pow(vector_pos[pos_index].second - y_rob, 2)
+    );
+    double threshold = 0.1;
+    if (distance < threshold) {
+        pos_index = (pos_index + 1)% vector_pos.size();
+    }
+
+    goalPoint.x = vector_pos[pos_index].first;
+    goalPoint.y = vector_pos[pos_index].second;
+}
+
+
+void controller(){
+
+    geometry_msgs::msg::Point goalPoint;
+    static int pos_index = 0;
+
+    get_next_point(goalPoint, vector_pos, pos_index);
+    double yl = -sin(theta_rob)*(goalPoint.x - x_rob) + cos(theta_rob)*(goalPoint.y - y_rob);
+    double k = (2*yl)/(L*L);
+    double v = (v_ref);
+    double w = v*k;
+
+    geometry_msgs::msg::Twist cmd_vel;
+    cmd_vel.linear.x = v;
+    cmd_vel.linear.y = 0.0;
+    cmd_vel.linear.z = 0.0;
+    cmd_vel.angular.x = 0.0;
+    cmd_vel.angular.y = 0.0;
+    cmd_vel.angular.z = w;
+    RCLCPP_INFO(this->get_logger(), "v %f, w: %f, xrob: %f, yrob: %f", v, w, x_rob, y_rob);
+    vel_publisher->publish(cmd_vel);
+
+}
+
 void init_RANDOM_MODE()
 {
 
@@ -152,21 +230,39 @@ void deinit_RANDOM_MODE()
 
 void init_INTELLIGENT_MODE()
 {
-    get_prm_path(prm_path, 200, 5, {-2.81,-2.87}, {-2.0, 0.0}); //example values
+    odom_subscriber = this->create_subscription<nav_msgs::msg::Odometry>(
+        "odom",10,std::bind(&turtlebot3_main::odom_callback,this,std::placeholders::_1));
+    
+    std::chrono::milliseconds period_control = std::chrono::milliseconds(50);
+    timer_controller = this->create_wall_timer(period_control,std::bind(&turtlebot3_main::controller,this));
+
+    vector_pos = {
+        {0, 0}, {0.25, 0}, {0.12, 0.12}
+    };
+    //get_prm_path(prm_path, 100, 5, {0,0}, {10, 0}); //example values
 }
 void deinit_INTELLIGENT_MODE()
 {
-
+    odom_subscriber.reset();
+    timer_controller.reset();
 }
 
 rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr mode_subscription;
 rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr movements_subscription;
-
+rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
 rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher;
 
 
 States_robot state = MANUAL_MODE;
 std::vector<std::pair<double, double>> prm_path;
+
+rclcpp::TimerBase::SharedPtr timer_controller;
+bool initialized_odom = false;
+double x_rob,y_rob,theta_rob,x_rob_0,y_rob_0,theta_rob_0;
+double b = (0.16/2);
+double L=0.25;
+double v_ref = 0.1;
+std::vector<std::pair<double, double>> vector_pos; //example positions for the robot
 };
 
 std::shared_ptr<turtlebot3_main> node = nullptr;
