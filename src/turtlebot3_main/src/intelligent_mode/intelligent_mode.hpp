@@ -31,6 +31,13 @@ static inline Point get_coordenates_cell(const nav_msgs::msg::OccupancyGrid& map
     return Point(x, y);
 }
 
+static inline std::pair<double, double> get_cell_coordinates(const nav_msgs::msg::OccupancyGrid& map, Point p)
+{
+    double x = map.info.origin.position.x + p.first * map.info.resolution;
+    double y = map.info.origin.position.y + p.second * map.info.resolution;
+    return std::make_pair(x, y);
+}
+
 static inline double distancia(const Point& a, const Point& b) {
     return std::sqrt((a.first - b.first) * (a.first - b.first) +
                      (a.second - b.second) * (a.second - b.second));
@@ -192,6 +199,8 @@ void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_pe
 
     std::vector<int> index_path;
 
+    int min_iteration = 10;
+
     for (int i = 0; i < 20; ++i) {
         for (int j = 0; j < nodes_per_iteration; ++j) {
             int x = rand() % width;
@@ -204,21 +213,31 @@ void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_pe
         }
 
         auto neighbours = get_closest_neighbours(valid_cells, n_neighbours, map);
+        RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Iteración: %d", i);
+        
+        if(i<min_iteration) continue;
 
         bool ret = find_path(index_path, neighbours);
         if (!ret) {
             index_path.clear();
+            visited_nodes.clear();
         }
         else{
             std::reverse(index_path.begin(), index_path.end());
-            for(long unsigned int i=0; i<index_path.size(); ++i)
+            // for(long unsigned int i=0; i<index_path.size(); ++i)
+            // {
+            //     RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Index: %d", index_path[i]);
+            // }
+            for(long unsigned int i=1; i<index_path.size(); i++)
             {
-                RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Index: %d", index_path[i]);
+                Point p = valid_cells[index_path[i]];
+                std::pair<double, double> coordinates = get_cell_coordinates(map, p);
+                prm_path.push_back(coordinates);
+                RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Node %ld: (%f, %f)", i, coordinates.first, coordinates.second);
             }
             break;
         }
 
-        RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Iteración: %d", i);
     }
     RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Finished generating nodes and neighbours.");
 }

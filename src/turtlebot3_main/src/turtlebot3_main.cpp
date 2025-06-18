@@ -152,7 +152,7 @@ void deinit_RANDOM_MODE()
 
 void init_INTELLIGENT_MODE()
 {
-    get_prm_path(prm_path, 100, 5, {0,0}, {3, 2}); //example values
+    get_prm_path(prm_path, 200, 5, {-2.81,-2.87}, {-2.0, 0.0}); //example values
 }
 void deinit_INTELLIGENT_MODE()
 {
