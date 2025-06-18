@@ -24,6 +24,13 @@ static inline int get_value_cell(const nav_msgs::msg::OccupancyGrid& map, Point 
     return map.data[index];
 }
 
+static inline Point get_coordenates_cell(const nav_msgs::msg::OccupancyGrid& map, std::pair<double, double> p)
+{
+    int x = static_cast<int>(std::round((p.first - map.info.origin.position.x) / map.info.resolution));
+    int y = static_cast<int>(std::round((p.second - map.info.origin.position.y) / map.info.resolution));
+    return Point(x, y);
+}
+
 static inline double distancia(const Point& a, const Point& b) {
     return std::sqrt((a.first - b.first) * (a.first - b.first) +
                      (a.second - b.second) * (a.second - b.second));
@@ -93,7 +100,63 @@ static std::vector<std::vector<int>> get_closest_neighbours(
     return neighbour;
 }
 
-void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_per_iteration, int n_neighbours, Point origin, Point destiny)
+/******************************************************
+******************************************************/
+
+//RECURSIVE METHOD TO TRAVEL THE GRAPH AND FIND THE PATH
+
+
+static std::vector<bool> visited_nodes;
+
+//remember origin is in pos = 0 and destiny is in pos = 1
+
+bool recursive_find_path(std::vector<int>& index_path,
+               const std::vector<std::vector<int>>& neighbours,
+               int index)
+{
+    if(index == 1)
+    {
+        index_path.push_back(index);
+        return true;
+    }
+
+    for(long unsigned int i=0; i<neighbours[index].size(); ++i)
+    {
+        int neighbour_index = neighbours[index][i];
+        if(visited_nodes[neighbour_index] == true)
+            continue;
+
+        visited_nodes[neighbour_index] = true;
+
+        if(recursive_find_path(index_path, neighbours, neighbour_index) == true)
+        {
+            index_path.push_back(index);
+            return true;
+        }
+    }
+    return false;
+
+}
+
+
+bool find_path(std::vector<int>& index_path,
+               const std::vector<std::vector<int>>& neighbours)
+{
+    visited_nodes.clear();
+    for(long unsigned int i=0; i< neighbours.size(); ++i)
+    {
+        visited_nodes.push_back(false);
+    }
+
+    return recursive_find_path(index_path, neighbours, 0);
+}
+
+
+/******************************************************
+******************************************************/
+
+
+void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_per_iteration, int n_neighbours, std::pair<double, double> origin, std::pair<double, double> destiny)
 {
     prm_path.clear();
 
@@ -124,8 +187,10 @@ void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_pe
     // }
 
     std::vector<Point> valid_cells;
-    valid_cells.push_back(origin);
-    valid_cells.push_back(destiny);
+    valid_cells.push_back(get_coordenates_cell(map, origin));
+    valid_cells.push_back(get_coordenates_cell(map, destiny));
+
+    std::vector<int> index_path;
 
     for (int i = 0; i < 20; ++i) {
         for (int j = 0; j < nodes_per_iteration; ++j) {
@@ -140,6 +205,20 @@ void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_pe
 
         auto neighbours = get_closest_neighbours(valid_cells, n_neighbours, map);
 
+        bool ret = find_path(index_path, neighbours);
+        if (!ret) {
+            index_path.clear();
+        }
+        else{
+            std::reverse(index_path.begin(), index_path.end());
+            for(long unsigned int i=0; i<index_path.size(); ++i)
+            {
+                RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Index: %d", index_path[i]);
+            }
+            break;
+        }
+
         RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Iteración: %d", i);
     }
+    RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Finished generating nodes and neighbours.");
 }
