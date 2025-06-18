@@ -45,8 +45,8 @@ public: turtlebot3_main() : Node("turtlebot3_main")
     );
     vel_publisher = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 
-    //init_MANUAL_MODE();
-    init_INTELLIGENT_MODE();
+    init_MANUAL_MODE();
+    //init_INTELLIGENT_MODE();
 }
 
 private:
@@ -173,6 +173,13 @@ void get_next_point(geometry_msgs::msg::Point &goalPoint,
         pos_index = (pos_index + 1)% vector_pos.size();
     }
 
+    if(pos_index == 0)
+    {
+        timer_controller.reset();
+        RCLCPP_INFO(this->get_logger(), "TARGET REACHED OMG");
+        return;
+    }
+
     goalPoint.x = vector_pos[pos_index].first;
     goalPoint.y = vector_pos[pos_index].second;
 }
@@ -181,9 +188,9 @@ void get_next_point(geometry_msgs::msg::Point &goalPoint,
 void controller(){
 
     geometry_msgs::msg::Point goalPoint;
-    static int pos_index = 0;
+    static int pos_index = 1;
 
-    get_next_point(goalPoint, vector_pos, pos_index);
+    get_next_point(goalPoint, prm_path, pos_index);
     double yl = -sin(theta_rob)*(goalPoint.x - x_rob) + cos(theta_rob)*(goalPoint.y - y_rob);
     double k = (2*yl)/(L*L);
     double v = (v_ref);
@@ -213,16 +220,20 @@ void deinit_RANDOM_MODE()
 
 void init_INTELLIGENT_MODE()
 {
+    RCLCPP_INFO(this->get_logger(), "Current STATE is INTELLIGENT_MODE");
+
+    // vector_pos = {
+    //     {0, 0}, {0.25, 0}, {0.12, 0.12}
+    // };
+
+    get_prm_path(prm_path, 100, 5, {x_rob, y_rob}, {0, 0.5}); //example values
+
     acml_subscriber = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
         "/amcl_pose",10,std::bind(&turtlebot3_main::amcl_callback,this,std::placeholders::_1));
     
     std::chrono::milliseconds period_control = std::chrono::milliseconds(50);
     timer_controller = this->create_wall_timer(period_control,std::bind(&turtlebot3_main::controller,this));
 
-    vector_pos = {
-        {0, 0}, {0.25, 0}, {0.12, 0.12}
-    };
-    //get_prm_path(prm_path, 100, 5, {0,0}, {10, 0}); //example values
 }
 
 
@@ -242,11 +253,11 @@ States_robot state = MANUAL_MODE;
 std::vector<std::pair<double, double>> prm_path;
 
 rclcpp::TimerBase::SharedPtr timer_controller;
-double x_rob,y_rob,theta_rob,x_rob_0,y_rob_0,theta_rob_0;
+double x_rob{0.0},y_rob{0.0},theta_rob{0.0};
 double b = (0.16/2);
 double L=0.25;
 double v_ref = 0.1;
-std::vector<std::pair<double, double>> vector_pos; //example positions for the robot
+//std::vector<std::pair<double, double>> vector_pos; //example positions for the robot
 };
 
 std::shared_ptr<turtlebot3_main> node = nullptr;
