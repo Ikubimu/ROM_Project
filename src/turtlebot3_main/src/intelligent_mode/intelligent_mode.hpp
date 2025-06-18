@@ -19,41 +19,85 @@
 
 using Point = std::pair<double, double>;
 
+static inline int get_value_cell(nav_msgs::msg::OccupancyGrid map, Point p)
+{
+    size_t width = map.info.width;
+    size_t index = static_cast<size_t>(p.second) * width + static_cast<size_t>(p.first);
+    return map.data[index];
+}
+
 static inline double distancia(const Point& a, const Point& b) {
     return std::sqrt((a.first - b.first) * (a.first - b.first) +
                      (a.second - b.second) * (a.second - b.second));
 }
 
-static std::vector<std::vector<Point>> get_closest_neighbours(const std::vector<Point>& points, int k) {
+
+static bool is_connected(const nav_msgs::msg::OccupancyGrid map, Point p1, Point p2) {
+    double x1 = p1.first;
+    double y1 = p1.second;
+    double x2 = p2.first;
+    double y2 = p2.second;
+
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+
+    double steps = std::max(std::abs(dx), std::abs(dy));
+    double x_inc = dx / steps;
+    double y_inc = dy / steps;
+
+    double x = x1;
+    double y = y1;
+
+    for (int i = 0; i <= steps; ++i) {
+        double cx = std::round(x);
+        double cy = std::round(y);
+
+        int value = get_value_cell(map, {cx, cy});
+        if (value > 5) return false;
+
+        x += x_inc;
+        y += y_inc;
+    }
+
+    return true; 
+}
+
+static std::vector<std::vector<int>> get_closest_neighbours(
+    const std::vector<Point>& points,
+    int k,
+    const nav_msgs::msg::OccupancyGrid& map)
+{
     int n = points.size();
-    std::vector<std::vector<Point>> neighbour(n);
+    std::vector<std::vector<int>> neighbour(n);
 
     for (int i = 0; i < n; ++i) {
-        std::vector<std::pair<double, Point>> distances;
+        std::vector<std::pair<double, int>> distances;
 
         for (int j = 0; j < n; ++j) {
             if (i == j) continue;
             double d = distancia(points[i], points[j]);
-            distances.push_back({d, points[j]});
+            distances.push_back({d, j});
         }
 
-        std::sort(distances.begin(), distances.end());
+        std::sort(distances.begin(), distances.end(),
+                  [](const auto& a, const auto& b) { return a.first < b.first; });
 
-        for (int m = 0; m < k && m < distances.size(); ++m) {
-            neighbour[i].push_back(distances[m].second);
+        int added = 0;
+        for (int m = 0; m < static_cast<int>(distances.size()) && added < k; ++m) {
+            int vecino_idx = distances[m].second;
+            if (is_connected(map, points[i], points[vecino_idx])) {
+                neighbour[i].push_back(vecino_idx);
+                ++added;
+            }
         }
     }
 
     return neighbour;
 }
 
-static bool is_connected(const nav_msgs::msg::OccupancyGrid map, Punto p1, Punto p2) {
 
-    
-    
-}
 
-void get_prm_path(std::vector<Point>& prm_path, int nodes_per_iteration, int n_neighbours)
+void get_prm_path(std::vector<Point>& prm_path, int nodes_per_iteration, int n_neighbours, Point origin, Point destiny)
 {
     prm_path.clear();
 
@@ -85,6 +129,8 @@ void get_prm_path(std::vector<Point>& prm_path, int nodes_per_iteration, int n_n
     // }
     
     std::vector<Point> valid_cells;
+    valid_cells.push_back(origin);
+    valid_cells.push_back(destiny);
     for(int i=0; i<20; i++)
     {
         for(int j=0; j<nodes_per_iteration; j++)
@@ -98,7 +144,8 @@ void get_prm_path(std::vector<Point>& prm_path, int nodes_per_iteration, int n_n
             }
         }
 
-        auto neighbours = get_closest_neighbours(valid_cells, n_neighbours);
+        auto neighbours = get_closest_neighbours(valid_cells, n_neighbours, map);
+
         RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Iteracion: %d", i);
         
     }
