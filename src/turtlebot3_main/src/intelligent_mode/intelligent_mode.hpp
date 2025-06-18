@@ -169,7 +169,7 @@ void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_pe
 
     nav_msgs::msg::OccupancyGrid map;
     try {
-        nav2_map_server::loadMapFromYaml("/home/alumno.upv.es.iubimuo/map.yaml", map);
+        nav2_map_server::loadMapFromYaml("/home/CoppeliaSim/RomxV3D_Project/map.yaml", map);
         RCLCPP_INFO(rclcpp::get_logger("load_map"), "Mapa cargado con éxito.");
     } catch (const std::exception &e) {
         RCLCPP_ERROR(rclcpp::get_logger("load_map"), "Error al cargar el mapa: %s", e.what());

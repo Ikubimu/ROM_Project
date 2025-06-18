@@ -143,33 +143,15 @@ void update_movements(const std_msgs::msg::Int32::SharedPtr msg)
     }
 }
 
-void odom_callback(const nav_msgs::msg::Odometry::SharedPtr odom_msg){
-    if (!initialized_odom){
-
-        x_rob_0 = odom_msg->pose.pose.position.x;
-        y_rob_0 = odom_msg->pose.pose.position.y;
-
-        tf2::Quaternion q( 
-            odom_msg->pose.pose.orientation.x,
-            odom_msg->pose.pose.orientation.y,
-            odom_msg->pose.pose.orientation.z,
-            odom_msg->pose.pose.orientation.w);
-
-        double roll, pitch, yaw;
-        tf2::Matrix3x3 m(q);
-        m.getRPY(roll,pitch,yaw);
-
-        theta_rob_0 = yaw;
-        initialized_odom = true;
-    }
-    x_rob = odom_msg->pose.pose.position.x;
-    y_rob = odom_msg->pose.pose.position.y;
+void amcl_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr acml_msg){
+    x_rob = acml_msg->pose.pose.position.x;
+    y_rob = acml_msg->pose.pose.position.y;
 
     tf2::Quaternion q( 
-        odom_msg->pose.pose.orientation.x,
-        odom_msg->pose.pose.orientation.y,
-        odom_msg->pose.pose.orientation.z,
-        odom_msg->pose.pose.orientation.w);
+        acml_msg->pose.pose.orientation.x,
+        acml_msg->pose.pose.orientation.y,
+        acml_msg->pose.pose.orientation.z,
+        acml_msg->pose.pose.orientation.w);
 
     double roll, pitch, yaw;
     tf2::Matrix3x3 m(q);
@@ -231,8 +213,8 @@ void deinit_RANDOM_MODE()
 
 void init_INTELLIGENT_MODE()
 {
-    odom_subscriber = this->create_subscription<nav_msgs::msg::Odometry>(
-        "odom",10,std::bind(&turtlebot3_main::odom_callback,this,std::placeholders::_1));
+    acml_subscriber = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        "/amcl_pose",10,std::bind(&turtlebot3_main::amcl_callback,this,std::placeholders::_1));
     
     std::chrono::milliseconds period_control = std::chrono::milliseconds(50);
     timer_controller = this->create_wall_timer(period_control,std::bind(&turtlebot3_main::controller,this));
@@ -246,13 +228,13 @@ void init_INTELLIGENT_MODE()
 
 void deinit_INTELLIGENT_MODE()
 {
-    odom_subscriber.reset();
+    acml_subscriber.reset();
     timer_controller.reset();
 }
 
 rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr mode_subscription;
 rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr movements_subscription;
-rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
+rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr acml_subscriber;
 rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher;
 
 
@@ -260,7 +242,6 @@ States_robot state = MANUAL_MODE;
 std::vector<std::pair<double, double>> prm_path;
 
 rclcpp::TimerBase::SharedPtr timer_controller;
-bool initialized_odom = false;
 double x_rob,y_rob,theta_rob,x_rob_0,y_rob_0,theta_rob_0;
 double b = (0.16/2);
 double L=0.25;
