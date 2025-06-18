@@ -228,6 +228,7 @@ void deinit_RANDOM_MODE()
 
 }
 
+
 void init_INTELLIGENT_MODE()
 {
     odom_subscriber = this->create_subscription<nav_msgs::msg::Odometry>(
@@ -241,6 +242,8 @@ void init_INTELLIGENT_MODE()
     };
     //get_prm_path(prm_path, 100, 5, {0,0}, {10, 0}); //example values
 }
+
+
 void deinit_INTELLIGENT_MODE()
 {
     odom_subscriber.reset();
