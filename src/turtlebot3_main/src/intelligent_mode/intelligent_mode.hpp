@@ -1,28 +1,26 @@
-#include <chrono>   //milliseconds
-#include <functional> // std::bind
+#include <chrono>
+#include <functional>
 #include <memory>
 #include <string>
-#include <math.h>
+#include <cmath>
 #include <vector>
 #include <algorithm>
+#include <cstdlib>
 
-#include <csignal> //interruptions
-
+#include <csignal>
 #include "rclcpp/rclcpp.hpp"
-#include <std_msgs/msg/int32.hpp>
+#include "std_msgs/msg/int32.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 
 #include "nav2_map_server/map_io.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 
-// #define PRM_YAML_PATH "/home/alumno.upv.es.iubimuo/map.yaml"  //hardcode by now
+using Point = std::pair<int, int>;
 
-using Point = std::pair<double, double>;
-
-static inline int get_value_cell(nav_msgs::msg::OccupancyGrid map, Point p)
+static inline int get_value_cell(const nav_msgs::msg::OccupancyGrid& map, Point p)
 {
     size_t width = map.info.width;
-    size_t index = static_cast<size_t>(p.second) * width + static_cast<size_t>(p.first);
+    size_t index = p.second * width + p.first;
     return map.data[index];
 }
 
@@ -32,25 +30,25 @@ static inline double distancia(const Point& a, const Point& b) {
 }
 
 
-static bool is_connected(const nav_msgs::msg::OccupancyGrid map, Point p1, Point p2) {
-    double x1 = p1.first;
-    double y1 = p1.second;
-    double x2 = p2.first;
-    double y2 = p2.second;
+static bool is_connected(const nav_msgs::msg::OccupancyGrid& map, Point p1, Point p2) {
+    int x1 = p1.first;
+    int y1 = p1.second;
+    int x2 = p2.first;
+    int y2 = p2.second;
 
-    double dx = x2 - x1;
-    double dy = y2 - y1;
+    int dx = x2 - x1;
+    int dy = y2 - y1;
 
-    double steps = std::max(std::abs(dx), std::abs(dy));
-    double x_inc = dx / steps;
-    double y_inc = dy / steps;
+    int steps = std::max(std::abs(dx), std::abs(dy));
+    double x_inc = static_cast<double>(dx) / steps;
+    double y_inc = static_cast<double>(dy) / steps;
 
     double x = x1;
     double y = y1;
 
     for (int i = 0; i <= steps; ++i) {
-        double cx = std::round(x);
-        double cy = std::round(y);
+        int cx = static_cast<int>(std::round(x));
+        int cy = static_cast<int>(std::round(y));
 
         int value = get_value_cell(map, {cx, cy});
         if (value > 5) return false;
@@ -95,14 +93,11 @@ static std::vector<std::vector<int>> get_closest_neighbours(
     return neighbour;
 }
 
-
-
-void get_prm_path(std::vector<Point>& prm_path, int nodes_per_iteration, int n_neighbours, Point origin, Point destiny)
+void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_per_iteration, int n_neighbours, Point origin, Point destiny)
 {
     prm_path.clear();
 
     nav_msgs::msg::OccupancyGrid map;
-
     try {
         nav2_map_server::loadMapFromYaml("/home/alumno.upv.es.iubimuo/map.yaml", map);
         RCLCPP_INFO(rclcpp::get_logger("load_map"), "Mapa cargado con éxito.");
@@ -127,26 +122,24 @@ void get_prm_path(std::vector<Point>& prm_path, int nodes_per_iteration, int n_n
     //         }
     //     }
     // }
-    
+
     std::vector<Point> valid_cells;
     valid_cells.push_back(origin);
     valid_cells.push_back(destiny);
-    for(int i=0; i<20; i++)
-    {
-        for(int j=0; j<nodes_per_iteration; j++)
-        {
-            double x = static_cast<double>(rand() % width);
-            double y = static_cast<double>(rand() % height);
 
-            size_t index = static_cast<size_t>(y) * width + static_cast<size_t>(x);
+    for (int i = 0; i < 20; ++i) {
+        for (int j = 0; j < nodes_per_iteration; ++j) {
+            int x = rand() % width;
+            int y = rand() % height;
+            size_t index = y * width + x;
+
             if (map.data[index] == 0) {
-                valid_cells.push_back({x, y});
+                valid_cells.emplace_back(x, y);
             }
         }
 
         auto neighbours = get_closest_neighbours(valid_cells, n_neighbours, map);
 
-        RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Iteracion: %d", i);
-        
+        RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Iteración: %d", i);
     }
 }
