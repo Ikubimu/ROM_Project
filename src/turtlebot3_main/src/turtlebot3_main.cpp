@@ -160,9 +160,10 @@ void amcl_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
 
 void get_next_point(geometry_msgs::msg::Point &goalPoint, 
                        std::vector<std::pair<double, double>> &vector_pos,
-                       int& pos_index)
+                       int& pos_index,
+                       double& distance)
 {
-    double distance = std::sqrt(
+    distance = std::sqrt(
         std::pow(vector_pos[pos_index].first - x_rob, 2) +
         std::pow(vector_pos[pos_index].second - y_rob, 2)
     );
@@ -182,11 +183,12 @@ void controller(){
 
     geometry_msgs::msg::Point goalPoint;
     static int pos_index = 1;
+    double dClosest = 0.0;
 
-    get_next_point(goalPoint, prm_path, pos_index);
+    get_next_point(goalPoint, prm_path, pos_index, dClosest);
     double yl = -sin(theta_rob)*(goalPoint.x - x_rob) + cos(theta_rob)*(goalPoint.y - y_rob);
     double k = (2*yl)/(L*L);
-    double v = (v_ref);
+    double v = (v_ref*dClosest)/L;;
     double w = v*k;
     if(pos_index == 0)
     {
@@ -217,7 +219,7 @@ void init_INTELLIGENT_MODE()
         {0, 0}, {0.25, 0}, {0.12, 0.12}
     };
 
-    get_prm_path(prm_path, 100, 5, {x_rob, y_rob}, {0, 0.5}); //example values
+    get_prm_path(prm_path, 100, 5, {x_rob, y_rob}, {2, 2.5}); //example values
 
     //prm_path = vector_pos;
 

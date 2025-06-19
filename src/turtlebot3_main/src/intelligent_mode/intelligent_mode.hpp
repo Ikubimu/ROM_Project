@@ -17,6 +17,12 @@
 
 using Point = std::pair<int, int>;
 
+typedef struct
+{
+    std::vector<int> index_neighbours;
+    std::vector<double> distances;
+} Neighbours_t;
+
 static inline int get_value_cell(const nav_msgs::msg::OccupancyGrid& map, Point p)
 {
     size_t width = map.info.width;
@@ -73,14 +79,26 @@ static bool is_connected(const nav_msgs::msg::OccupancyGrid& map, Point p1, Poin
 
     return true; 
 }
+static std::vector<double> heuristic;
 
-static std::vector<std::vector<int>> get_closest_neighbours(
+static std::vector<Neighbours_t> get_closest_neighbours(
     const std::vector<Point>& points,
     int k,
     const nav_msgs::msg::OccupancyGrid& map)
 {
     int n = points.size();
-    std::vector<std::vector<int>> neighbour(n);
+    std::vector<Neighbours_t> neighbours(n);
+
+    if (n < 2) {
+        std::cerr << "ERROR: Se requieren al menos 2 puntos para calcular la heurística." << std::endl;
+        return neighbours; // vacío o incompleto
+    }
+
+    heuristic.clear();
+    heuristic.reserve(n);
+    for (int i = 0; i < n; ++i) {
+        heuristic.push_back(distancia(points[i], points[1]));
+    }
 
     for (int i = 0; i < n; ++i) {
         std::vector<std::pair<double, int>> distances;
@@ -97,65 +115,116 @@ static std::vector<std::vector<int>> get_closest_neighbours(
         int added = 0;
         for (int m = 0; m < static_cast<int>(distances.size()) && added < k; ++m) {
             int vecino_idx = distances[m].second;
+
+            // Validar índice vecino
+            if (vecino_idx < 0 || vecino_idx >= n) {
+                std::cerr << "ERROR: índice vecino fuera de rango: " << vecino_idx << std::endl;
+                continue;
+            }
+
+            double dist = distances[m].first;
+
             if (is_connected(map, points[i], points[vecino_idx])) {
-                neighbour[i].push_back(vecino_idx);
+                neighbours[i].index_neighbours.push_back(vecino_idx);
+                neighbours[i].distances.push_back(dist);
                 ++added;
             }
         }
     }
 
-    return neighbour;
+    return neighbours;
 }
 
-/******************************************************
-******************************************************/
-
-//RECURSIVE METHOD TO TRAVEL THE GRAPH AND FIND THE PATH
-
+/******************************************************/
 
 static std::vector<bool> visited_nodes;
+static std::vector<double> best_cost; // mejor usar double para precisión
 
-//remember origin is in pos = 0 and destiny is in pos = 1
-
-bool recursive_find_path(std::vector<int>& index_path,
-               const std::vector<std::vector<int>>& neighbours,
-               int index)
+// Recursive A* function
+bool recursive_a_star(std::vector<int>& path,
+                      const std::vector<Neighbours_t>& neighbours,
+                      int current,
+                      double current_g_cost)
 {
-    if(index == 1)
+    std::size_t N = neighbours.size();
+
+    if (current < 0 || current >= static_cast<int>(N)) {
+        std::cerr << "ERROR: índice current fuera de rango: " << current << std::endl;
+        return false;
+    }
+
+    if (current == 1) // Nodo destino
     {
-        index_path.push_back(index);
+        path.push_back(current);
         return true;
     }
 
-    for(long unsigned int i=0; i<neighbours[index].size(); ++i)
+    visited_nodes[current] = true;
+
+    const auto& current_neighbors = neighbours[current];
+    bool found_path = false;
+    std::vector<int> best_subpath;
+    double best_f_cost = std::numeric_limits<double>::infinity();
+
+    for (std::size_t i = 0; i < current_neighbors.index_neighbours.size(); ++i)
     {
-        int neighbour_index = neighbours[index][i];
-        if(visited_nodes[neighbour_index] == true)
+        int neighbor = current_neighbors.index_neighbours[i];
+
+        if (neighbor < 0 || neighbor >= static_cast<int>(N)) {
+            std::cerr << "ERROR: índice vecino fuera de rango en recursive_a_star: " << neighbor << std::endl;
+            continue;
+        }
+
+        double edge_cost = current_neighbors.distances[i];
+        double tentative_g = current_g_cost + edge_cost;
+
+        // Saltar si peor o ya visitado con menor coste
+        if (visited_nodes[neighbor] && tentative_g >= best_cost[neighbor])
             continue;
 
-        visited_nodes[neighbour_index] = true;
+        if (tentative_g < best_cost[neighbor])
+            best_cost[neighbor] = tentative_g;
+        else
+            continue;
 
-        if(recursive_find_path(index_path, neighbours, neighbour_index) == true)
+        std::vector<int> subpath;
+        if (recursive_a_star(subpath, neighbours, neighbor, tentative_g))
         {
-            index_path.push_back(index);
-            return true;
+            double total_f = tentative_g + heuristic[neighbor];
+            if (total_f < best_f_cost)
+            {
+                best_f_cost = total_f;
+                best_subpath = std::move(subpath);
+                found_path = true;
+            }
         }
     }
-    return false;
 
-}
-
-
-bool find_path(std::vector<int>& index_path,
-               const std::vector<std::vector<int>>& neighbours)
-{
-    visited_nodes.clear();
-    for(long unsigned int i=0; i< neighbours.size(); ++i)
+    if (found_path)
     {
-        visited_nodes.push_back(false);
+        path = std::move(best_subpath);
+        path.push_back(current);
+        return true;
     }
 
-    return recursive_find_path(index_path, neighbours, 0);
+    return false;
+}
+
+// Punto de entrada
+bool find_path(std::vector<int>& path,
+               const std::vector<Neighbours_t>& neighbours)
+{
+    std::size_t N = neighbours.size();
+    if (N == 0) {
+        std::cerr << "ERROR: lista de vecinos vacía." << std::endl;
+        return false;
+    }
+
+    visited_nodes.assign(N, false);
+    best_cost.assign(N, std::numeric_limits<double>::infinity());
+    best_cost[0] = 0.0;
+
+    return recursive_a_star(path, neighbours, 0, 0.0);
 }
 
 
@@ -169,7 +238,7 @@ void get_prm_path(std::vector<std::pair<double, double>>& prm_path, int nodes_pe
 
     nav_msgs::msg::OccupancyGrid map;
     try {
-        nav2_map_server::loadMapFromYaml("/home/ikervirtual/CoppeliaSim/RomxV3d_Project/map.yaml", map);
+        nav2_map_server::loadMapFromYaml("/home/alumno.upv.es.iubimuo/map.yaml", map);
         RCLCPP_INFO(rclcpp::get_logger("load_map"), "Mapa cargado con éxito.");
     } catch (const std::exception &e) {
         RCLCPP_ERROR(rclcpp::get_logger("load_map"), "Error al cargar el mapa: %s", e.what());
