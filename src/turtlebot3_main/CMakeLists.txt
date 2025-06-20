@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav2_map_server REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 include_directories(
   ${nav2_map_server_INCLUDE_DIRS}
@@ -25,6 +26,7 @@ ament_target_dependencies(${PROJECT_NAME}_node
   std_msgs
   geometry_msgs
   nav2_map_server
+  sensor_msgs
 )
 
 

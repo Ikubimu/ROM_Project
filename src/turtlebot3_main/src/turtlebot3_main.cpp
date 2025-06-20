@@ -12,6 +12,7 @@
 #include <std_msgs/msg/int32.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include "geometry_msgs/msg/twist.hpp"
 #include "std_msgs/msg/string.hpp"
 
@@ -31,7 +32,8 @@ enum Movements_mode
 {
     STOP = 0,
     GO_AHEAD,
-    TURNING
+    RIGHT,
+    LEFT
 };
 
 class turtlebot3_main : public rclcpp::Node	
@@ -148,7 +150,10 @@ void update_movements(const std_msgs::msg::Int32::SharedPtr msg)
         case GO_AHEAD:
             publish_cmd_vel(10.0, 0.0);
             break;
-        case TURNING:
+        case RIGHT:
+            publish_cmd_vel(0.0, -10.0);
+            break;
+        case LEFT:
             publish_cmd_vel(0.0, 10.0);
             break;
     }
@@ -267,13 +272,53 @@ void deinit_INTELLIGENT_MODE()
 ************FUNCTION RANDOM MODE**************
 **********************************************/
 
-void init_RANDOM_MODE()
+void change_position()
+{
+    publish_cmd_vel(((float)(rand()%100) * 0.1 -5.0), ((float)(rand()%100) * 0.1 -5.0));
+    RCLCPP_INFO(this->get_logger(), "Its random day");
+}
+
+void turn_random()
 {
 
+    timer_random.reset();
+    publish_cmd_vel(1.0, 0.0);
+    sub_lidar = this->create_subscription<sensor_msgs::msg::LaserScan>(
+            "/scan", 10,
+            std::bind(&turtlebot3_main::laser_callback, this, _1)
+    );
+
+}
+
+void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+{
+    for(int i=0; i<10; i++)
+    {
+
+        float dist = msg->ranges[0];
+        if(dist <= 0.2)
+        {
+            publish_cmd_vel(0.0, 5.0);
+            sub_lidar.reset();
+            timer_random = this->create_wall_timer(std::chrono::seconds(rand()%5 +2), std::bind(&turtlebot3_main::turn_random,this));
+            return;
+        }
+    }
+}
+
+void init_RANDOM_MODE()
+{
+    RCLCPP_INFO(this->get_logger(), "Current STATE is RANDOM_MODE");
+    sub_lidar = this->create_subscription<sensor_msgs::msg::LaserScan>(
+            "/scan", 10,
+            std::bind(&turtlebot3_main::laser_callback, this, _1)
+    );
+    publish_cmd_vel(1.0, 0.0);
 }
 void deinit_RANDOM_MODE()
 {
-
+    timer_random.reset();
+    sub_lidar.reset();
 }
 
 
@@ -293,6 +338,11 @@ double x_rob{0.0},y_rob{0.0},theta_rob{0.0};
 double b = (0.16/2);
 double L=0.25;
 double v_ref = 0.05;
+
+
+rclcpp::TimerBase::SharedPtr timer_random;
+rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_lidar;
+
 
 };
 
