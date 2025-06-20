@@ -34,7 +34,8 @@ public: AmclOdom() : Node("amcl_odom")
     auto msg = std_msgs::msg::String();
     msg.data = map;
 
-    publisher_map = this->create_publisher<std_msgs::msg::String>("/map_path", 10);
+    auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local();
+    publisher_map = this->create_publisher<std_msgs::msg::String>("/map_path", qos);
     publisher_map->publish(msg);
 
 
