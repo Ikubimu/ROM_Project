@@ -79,6 +79,17 @@ static bool is_connected(const nav_msgs::msg::OccupancyGrid& map, Point p1, Poin
 
     return true; 
 }
+
+
+/******************************************************
+******************************************************/
+/*
+
+Para la implementación de A* se ha recurrido a herramientas externas IA
+ChatGPT casi en su totalidad
+
+*/
+
 static std::vector<double> heuristic;
 
 static std::vector<Neighbours_t> get_closest_neighbours(
@@ -135,10 +146,11 @@ static std::vector<Neighbours_t> get_closest_neighbours(
     return neighbours;
 }
 
-/******************************************************/
+
+
 
 static std::vector<bool> visited_nodes;
-static std::vector<double> best_cost; // mejor usar double para precisión
+static std::vector<double> best_cost;
 
 // Recursive A* function
 bool recursive_a_star(std::vector<int>& path,
@@ -210,8 +222,8 @@ bool recursive_a_star(std::vector<int>& path,
     return false;
 }
 
-// Punto de entrada
-bool find_path(std::vector<int>& path,
+
+static bool find_path(std::vector<int>& path,
                const std::vector<Neighbours_t>& neighbours)
 {
     std::size_t N = neighbours.size();
@@ -251,20 +263,6 @@ void get_prm_path(std::string map_path,
 
     uint32_t width = map.info.width;
     uint32_t height = map.info.height;
-
-    // RCLCPP_INFO(rclcpp::get_logger("map_logger"), "Tamaño del mapa: %dx%d", width, height);
-
-    // for (uint32_t y = 0; y < height; ++y) {
-    //     for (uint32_t x = 0; x < width; ++x) {
-    //         size_t index = y * width + x;
-    //         int8_t value = map.data[index];
-    //         if(value != 0)
-    //         {
-    //             RCLCPP_INFO(rclcpp::get_logger("map_logger"),
-    //                     "Celda (%d, %d): %d", x, y, value);
-    //         }
-    //     }
-    // }
 
     std::vector<Point> valid_cells;
     valid_cells.push_back(get_coordenates_cell(map, origin));

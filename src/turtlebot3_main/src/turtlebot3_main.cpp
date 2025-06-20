@@ -56,11 +56,6 @@ public: turtlebot3_main() : Node("turtlebot3_main")
 
 private:
 
-void map_callback(std_msgs::msg::String::SharedPtr msg)
-{
-    map_path = msg->data.c_str();
-}
-
 void state_callback(const std_msgs::msg::Int32::SharedPtr msg)
 {
     int a = msg->data;
@@ -107,6 +102,23 @@ void state_callback(const std_msgs::msg::Int32::SharedPtr msg)
 
 
 }
+//function to publish cmd_vel, common in all states
+void publish_cmd_vel(float lienar_vel, float ang_vel)
+{
+    auto msg = geometry_msgs::msg::Twist();
+    msg.linear.x = lienar_vel;
+    msg.linear.y = 0.0;
+    msg.linear.z = 0.0;
+    msg.angular.x = 0.0;
+    msg.angular.y = 0.0;
+    msg.angular.z = ang_vel;
+    vel_publisher->publish(msg);
+}
+
+
+/*********************************************
+************FUNCTION MANUAL MODE**************
+**********************************************/
 
 void init_MANUAL_MODE()
 {
@@ -122,17 +134,6 @@ void deinit_MANUAL_MODE()
     movements_subscription.reset();
 }
 
-void publish_cmd_vel(float lienar_vel, float ang_vel)
-{
-    auto msg = geometry_msgs::msg::Twist();
-    msg.linear.x = lienar_vel;
-    msg.linear.y = 0.0;
-    msg.linear.z = 0.0;
-    msg.angular.x = 0.0;
-    msg.angular.y = 0.0;
-    msg.angular.z = ang_vel;
-    vel_publisher->publish(msg);
-}
 
 void update_movements(const std_msgs::msg::Int32::SharedPtr msg)
 {
@@ -153,6 +154,17 @@ void update_movements(const std_msgs::msg::Int32::SharedPtr msg)
     }
 }
 
+/*********************************************
+************FUNCTION INTELLIGENT MODE*********
+**********************************************/
+
+//callback to assign map.yalm path from acml node
+void map_callback(std_msgs::msg::String::SharedPtr msg)
+{
+    map_path = msg->data.c_str();
+}
+
+//get pos and theta alredy calculated from acml node
 void amcl_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
     x_rob = msg->pose.pose.position.x;
     y_rob = msg->pose.pose.position.y;
@@ -169,6 +181,7 @@ void amcl_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
     theta_rob = theta;
 }
 
+//get next point to follow
 void get_next_point(geometry_msgs::msg::Point &goalPoint, 
                        std::vector<std::pair<double, double>> &vector_pos,
                        int& pos_index,
@@ -189,7 +202,7 @@ void get_next_point(geometry_msgs::msg::Point &goalPoint,
     goalPoint.y = vector_pos[pos_index].second;
 }
 
-
+//function is periodically called up for motion control
 void controller(){
 
     geometry_msgs::msg::Point goalPoint;
@@ -212,14 +225,6 @@ void controller(){
 
 }
 
-void init_RANDOM_MODE()
-{
-
-}
-void deinit_RANDOM_MODE()
-{
-
-}
 
 
 void init_INTELLIGENT_MODE()
@@ -233,6 +238,7 @@ void init_INTELLIGENT_MODE()
         init_MANUAL_MODE();
     }
 
+    std::vector<std::pair<double, double>> vector_pos; //example positions for the robot for testing
     vector_pos = {
         {0, 0}, {0.75, 0}, {0.75, 1}
     };
@@ -256,6 +262,24 @@ void deinit_INTELLIGENT_MODE()
     timer_controller.reset();
 }
 
+
+/*********************************************
+************FUNCTION RANDOM MODE**************
+**********************************************/
+
+void init_RANDOM_MODE()
+{
+
+}
+void deinit_RANDOM_MODE()
+{
+
+}
+
+
+
+States_robot state = MANUAL_MODE;
+
 rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr mode_subscription;
 rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr movements_subscription;
 rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr acml_subscriber;
@@ -263,15 +287,13 @@ rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher;
 rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_map;
 
 std::string map_path = "";
-States_robot state = MANUAL_MODE;
 std::vector<std::pair<double, double>> prm_path;
-
 rclcpp::TimerBase::SharedPtr timer_controller;
 double x_rob{0.0},y_rob{0.0},theta_rob{0.0};
 double b = (0.16/2);
 double L=0.25;
 double v_ref = 0.05;
-std::vector<std::pair<double, double>> vector_pos; //example positions for the robot
+
 };
 
 std::shared_ptr<turtlebot3_main> node = nullptr;
