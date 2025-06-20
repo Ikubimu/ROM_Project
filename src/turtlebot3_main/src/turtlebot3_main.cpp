@@ -134,6 +134,7 @@ void init_MANUAL_MODE()
 void deinit_MANUAL_MODE()
 {
     movements_subscription.reset();
+    publish_cmd_vel(0.0, 0.0);
 }
 
 
@@ -148,13 +149,13 @@ void update_movements(const std_msgs::msg::Int32::SharedPtr msg)
             publish_cmd_vel(0.0, 0.0);
             break;
         case GO_AHEAD:
-            publish_cmd_vel(10.0, 0.0);
+            publish_cmd_vel(3.0, 0.0);
             break;
         case RIGHT:
-            publish_cmd_vel(0.0, -10.0);
+            publish_cmd_vel(0.0, -3.0);
             break;
         case LEFT:
-            publish_cmd_vel(0.0, 10.0);
+            publish_cmd_vel(0.0, 3.0);
             break;
     }
 }
@@ -265,6 +266,7 @@ void deinit_INTELLIGENT_MODE()
 {
     acml_subscriber.reset();
     timer_controller.reset();
+    publish_cmd_vel(0.0, 0.0);
 }
 
 
@@ -274,7 +276,7 @@ void deinit_INTELLIGENT_MODE()
 
 void change_position()
 {
-    publish_cmd_vel(((float)(rand()%100) * 0.1 -5.0), ((float)(rand()%100) * 0.1 -5.0));
+    publish_cmd_vel(((float)(rand()%100) * 0.06 -3.0), ((float)(rand()%100) * 0.06 -3.0));
     RCLCPP_INFO(this->get_logger(), "Its random day");
 }
 
@@ -298,9 +300,9 @@ void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
         float dist = msg->ranges[0];
         if(dist <= 0.2)
         {
-            publish_cmd_vel(0.0, 5.0);
+            publish_cmd_vel(0.0, 3.0);
             sub_lidar.reset();
-            timer_random = this->create_wall_timer(std::chrono::seconds(rand()%5 +2), std::bind(&turtlebot3_main::turn_random,this));
+            timer_random = this->create_wall_timer(std::chrono::milliseconds(rand()%1000 + 100), std::bind(&turtlebot3_main::turn_random,this));
             return;
         }
     }
@@ -319,6 +321,7 @@ void deinit_RANDOM_MODE()
 {
     timer_random.reset();
     sub_lidar.reset();
+    publish_cmd_vel(0.0, 0.0);
 }
 
 

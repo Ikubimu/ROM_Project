@@ -61,7 +61,7 @@ class TecladoModoNode(Node):
                     return
 
                 movimiento_dict = {'a': 'Girar Izquierda', 's': 'Parar', 'd': 'Girar Derecha', 'w': 'Avanzar'}
-                comando = {'a': 0, 's': 1, 'd': 2, 'w': 3}[ch]
+                comando = {'a': 3, 's': 0, 'd': 2, 'w': 1}[ch]
 
                 int_msg = Int32()
                 str_msg = String()
