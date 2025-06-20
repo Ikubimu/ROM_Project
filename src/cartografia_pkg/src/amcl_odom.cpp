@@ -14,6 +14,7 @@
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
 #include "std_msgs/msg/header.hpp"
+#include "std_msgs/msg/string.hpp"
 
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -26,6 +27,17 @@ class AmclOdom : public rclcpp::Node
 
 public: AmclOdom() : Node("amcl_odom")
 {
+    //obtain map path
+    this->declare_parameter<std::string>("map", "");
+    std::string map = this->get_parameter("map").as_string();
+
+    auto msg = std_msgs::msg::String();
+    msg.data = map;
+
+    publisher_map = this->create_publisher<std_msgs::msg::String>("/map_path", 10);
+    publisher_map->publish(msg);
+
+
 	rclcpp::QoS qos_profile(10);
         qos_profile.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE); 
         qos_profile.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
@@ -37,7 +49,7 @@ public: AmclOdom() : Node("amcl_odom")
         "amcl_pose",10,std::bind(&AmclOdom::amcl_callback,this,std::placeholders::_1));
     
     odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("amcl_odom",10);
-		
+
 }
 
 private:
@@ -146,6 +158,8 @@ rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
 rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr amcl_subscriber; 
 
 rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_map;
+
 
 double x_rob,y_rob,theta_rob;
 double x_odom,y_odom,theta_odom;

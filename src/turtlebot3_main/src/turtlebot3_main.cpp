@@ -13,6 +13,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include "geometry_msgs/msg/twist.hpp"
+#include "std_msgs/msg/string.hpp"
 
 #include "intelligent_mode/intelligent_mode.hpp"
 
@@ -44,12 +45,21 @@ public: turtlebot3_main() : Node("turtlebot3_main")
             std::bind(&turtlebot3_main::state_callback, this, _1)
     );
     vel_publisher = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
-
+    subscription_map = this->create_subscription<std_msgs::msg::String>(
+        "/map_path",
+        10,
+        std::bind(&turtlebot3_main::map_callback, this, _1)
+    );
     init_MANUAL_MODE();
     //init_INTELLIGENT_MODE();
 }
 
 private:
+
+void map_callback(std_msgs::msg::String::SharedPtr msg)
+{
+    map_path = msg->data.c_str();
+}
 
 void state_callback(const std_msgs::msg::Int32::SharedPtr msg)
 {
@@ -155,6 +165,7 @@ void amcl_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
 
     double roll, pitch, theta;
     tf2::Matrix3x3(q).getRPY(roll, pitch, theta);
+    RCLCPP_INFO(this->get_logger(), "xrob: %f, yrob: %f", x_rob, y_rob);
     theta_rob = theta;
 }
 
@@ -215,11 +226,18 @@ void init_INTELLIGENT_MODE()
 {
     RCLCPP_INFO(this->get_logger(), "Current STATE is INTELLIGENT_MODE");
 
+    if(map_path == "")
+    {
+        state = MANUAL_MODE;
+        RCLCPP_INFO(this->get_logger(), "There is not map to travel");
+        init_MANUAL_MODE();
+    }
+
     vector_pos = {
-        {0, 0}, {0.25, 0}, {0.12, 0.12}
+        {0, 0}, {0.75, 0}, {0.75, 1}
     };
 
-    get_prm_path(prm_path, 100, 5, {x_rob, y_rob}, {2, 2.5}); //example values
+    get_prm_path(map_path, prm_path, 200, 5, {x_rob, y_rob}, {0.7, 0.7}); //example values
 
     //prm_path = vector_pos;
 
@@ -242,8 +260,9 @@ rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr mode_subscription;
 rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr movements_subscription;
 rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr acml_subscriber;
 rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher;
+rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_map;
 
-
+std::string map_path = "";
 States_robot state = MANUAL_MODE;
 std::vector<std::pair<double, double>> prm_path;
 
@@ -251,7 +270,7 @@ rclcpp::TimerBase::SharedPtr timer_controller;
 double x_rob{0.0},y_rob{0.0},theta_rob{0.0};
 double b = (0.16/2);
 double L=0.25;
-double v_ref = 0.1;
+double v_ref = 0.05;
 std::vector<std::pair<double, double>> vector_pos; //example positions for the robot
 };
 
