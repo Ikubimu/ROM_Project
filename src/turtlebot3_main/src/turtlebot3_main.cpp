@@ -152,10 +152,10 @@ void update_movements(const std_msgs::msg::Int32::SharedPtr msg)
             publish_cmd_vel(3.0, 0.0);
             break;
         case RIGHT:
-            publish_cmd_vel(0.0, -3.0);
+            publish_cmd_vel(0.0, -1.0);
             break;
         case LEFT:
-            publish_cmd_vel(0.0, 3.0);
+            publish_cmd_vel(0.0, 1.0);
             break;
     }
 }
